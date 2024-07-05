@@ -1,5 +1,5 @@
 from model import DamagePropagationModel
-from data import *
+from utilsimport *
 import torch
 
 # enforcing GPU usage
