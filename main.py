@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 import numpy as np
+import matplotlib.pyplot as plt
 
 # enforcing GPU usage
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -45,7 +46,7 @@ FD_columns = [[column for column in df if column != 'RUL'] for df in train_data]
 
 sequence_length = 10
 trajectory = 0  # see readme file
-batch_size = 32
+batch_size = 64
 epochs = 20
 x, y = create_training_batch(train_data[trajectory], sequence_length, FD_columns[trajectory])
 feature_count = x.shape[2]
@@ -54,36 +55,48 @@ out_dim = 1
 # Preparing DataLoaders and Tensors
 x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.2, random_state=42)
 
-train_dataset = TensorDataset(torch.tensor(x_train).float().to(device),
-                              torch.tensor(y_train).float().to(device))
-val_dataset = TensorDataset(torch.tensor(x_val).float().to(device),
-                            torch.tensor(y_val).float().to(device))
+train_dataset = TensorDataset(torch.tensor(x_train).float(),
+                              torch.tensor(y_train).float().unsqueeze(1))
+val_dataset = TensorDataset(torch.tensor(x_val).float(),
+                            torch.tensor(y_val).float().unsqueeze(1))
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Creating the model
-Model = DamagePropagationModel(sequence_length, feature_count, out_dim).to(device)
+Model = DamagePropagationModel(feature_count, out_dim).to(device)
 print(Model)
 
 # Loss function and optimisation
 criterion = nn.MSELoss()
-optimizer = torch.optim.RMSprop(Model.parameters(), lr=0.001)
+optimizer = torch.optim.RMSprop(Model.parameters(), lr=0.01)
+print(Model.parameters())
 
-# Let's have a look at what the dataloaders and datasets look like
-print("Training data size: ", x.shape)
-print("---\n")
-print("Training label size: ", y.shape)
-
-print("---\n")
-print("X_train shape: ", x_train.shape)
-print("X_val shape: ", x_val.shape)
-print("---\n")
-print("Y_train shape: ", y_train.shape)
-print("Y_val shape: ", y_val.shape)
 # Training the model
-train_model(Model, criterion, optimizer, train_loader, val_loader, num_epochs=epochs, patience=10)
+#train_model(Model, criterion, optimizer, train_loader, val_loader, num_epochs=epochs, patience=10)
 
+Model.load_state_dict(torch.load('best_model.pt'))
+Model.eval()
+Model.to(device)
 
+# Predictions on training data
+x_train_tensor = torch.tensor(x_train).float().to(device)
 
+# x_train and y_train are arrays. x_train should just be opModes and sensor readings. y_train should be the
+# corresponding RUL vector
+print(y_train)
 
+with torch.no_grad():
+    y_train_pred = Model(x_train_tensor)
+
+y_train_pred = y_train_pred.cpu().numpy()
+y_train_tensor = torch.tensor(y_train).float().unsqueeze(1).cpu().numpy()
+
+plt.figure(figsize=(10, 5))
+plt.plot(y_train[0:200], label='Actual')
+plt.plot(y_train_pred[0:200], label='Predicted')
+plt.xlabel('Sample index')
+plt.ylabel('Value')
+plt.legend()
+plt.title('Actual vs Predicted on Training Data')
+plt.show()

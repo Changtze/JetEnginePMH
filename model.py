@@ -3,18 +3,13 @@ import torch
 
 
 class DamagePropagationModel(nn.Module):
-    def __init__(self, seq_len, feature_count, out_dim):
+    def __init__(self, feature_count, out_dim):
         super(DamagePropagationModel, self).__init__()
 
-        self.lstm1 = nn.LSTM(input_size=feature_count, hidden_size=128,
-                             batch_first=True)
-
+        self.lstm1 = nn.LSTM(input_size=feature_count, hidden_size=128, batch_first=True)
         self.batch_norm = nn.BatchNorm1d(num_features=128)
         self.dropout1 = nn.Dropout(0.3)
-
-        self.lstm2 = nn.LSTM(input_size=128, hidden_size=64,
-                             batch_first=True)
-
+        self.lstm2 = nn.LSTM(input_size=128, hidden_size=64, batch_first=True)
         self.dropout2 = nn.Dropout(0.3)
         self.dense = nn.Linear(in_features=64, out_features=out_dim)
         self.activation = nn.ReLU()
@@ -23,8 +18,8 @@ class DamagePropagationModel(nn.Module):
         x, _ = self.lstm1(x)
         x = self.batch_norm(x.transpose(1, 2)).transpose(1, 2)
         x = self.dropout1(x)
-        x, _ = self.lstm2(x)
-        x = self.dropout2(x)
+        x, (hn, cn) = self.lstm2(x)
+        x = self.dropout2(hn[-1])
         x = self.dense(x)
         x = self.activation(x)
         return x
@@ -36,12 +31,12 @@ def train_model(model, criterion, optimizer,
                 patience=10):
     best_loss = float('inf')
     patience_counter = 0
-    print("Model initialised successfully. Beginning training on {dev}".format(dev=torch.cuda.get_device_name(0)))
+    print("Model initialised successfully. Beginning training on {dev}...".format(dev=torch.cuda.get_device_name(0)))
     for epoch in range(num_epochs):
         loss = 0.0
         model.train()
-        for data, target in train_loader:
-            data, targets = data.to(device), target.to(device)
+        for data, targets in train_loader:
+            data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             outputs = model(data).to(device)
             loss = criterion(outputs, targets)
@@ -56,7 +51,7 @@ def train_model(model, criterion, optimizer,
         val_loss = 0.0
         with torch.no_grad():
             for data, targets in val_loader:
-                data, targets = data.to(device), data.to(device)
+                data, targets = data.to(device), targets.to(device)
                 outputs = model(data).to(device)
                 loss = criterion(outputs, targets)
                 val_loss += loss.item() * data.size(0)
