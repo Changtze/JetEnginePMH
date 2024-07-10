@@ -17,18 +17,26 @@ labels = (['unit', 'cycles', 'opMode1', 'opMode2', 'opMode3']
           + [f'sensor{i}' for i in range(1, 22)])  # for 22 sensors
 
 
-def load_data(filepath):
+def load_data(filepath, rul=False):
     data = []
     # Creating lists which hold dataframes for each test trajectory
-    for i in range(1, 5):
-        data.append(pd.read_csv(filepath.replace('X', str(i)),
-                                names=labels, delimiter='\s+',
-                                dtype=np.float32))
-        if i == 1 or i == 3:
-            data[i - 1].drop(cols_to_drop, axis=1, inplace=True)
-        if i == 4 or i == 2:
-            data[i - 1].drop('sensor16', axis=1, inplace=True)
-    return data  # a list
+    if not rul:
+        for i in range(1, 5):
+            data.append(pd.read_csv(filepath.replace('X', str(i)),
+                                    names=labels, delimiter='\s+',
+                                    dtype=np.float32))
+            if i == 1 or i == 3:
+                data[i - 1].drop(cols_to_drop, axis=1, inplace=True)
+            if i == 4 or i == 2:
+                data[i - 1].drop('sensor16', axis=1, inplace=True)
+        return data
+    else:
+        for i in range(1, 5):
+            data.append(pd.read_csv(filepath.replace('X', str(i)),
+                                    delimiter='\s+', header=None,
+                                    dtype=np.float32))
+
+        return data  # a list
 
 
 def prepare_data(data: pd.DataFrame):
