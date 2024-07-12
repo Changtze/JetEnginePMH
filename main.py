@@ -45,10 +45,10 @@ for j in range(len(train_data)):
 # Grabbing column labels
 FD_columns = [[column for column in df if column != 'RUL'] for df in train_data]
 
-sequence_length = 20
+sequence_length = 10
 trajectory = 0  # see readme file
-batch_size = 32
-epochs = 100
+batch_size = 64
+epochs = 150
 x, y = create_training_batch(train_data[trajectory], sequence_length, FD_columns[trajectory])
 x_test, y_test = create_test_batch(test_data[trajectory], sequence_length, FD_columns[trajectory])
 feature_count = x.shape[2]
@@ -78,7 +78,8 @@ model_filename = 'LSTM_model1.pt'
 model1 = train_model(Model, criterion, optimizer,
                      train_loader, val_loader, num_epochs=epochs,
                      patience=10, filename=model_filename)
-epoch_id = np.arange(1, epochs+1, 1)
+
+#epoch_id = np.arange(1, epochs+1, 1)
 
 # Loading trained model
 model_path = f'D:/Data Science/CMAPSS Engine Simulations/code/tft_new_311/{model_filename}'

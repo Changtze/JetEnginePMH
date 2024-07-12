@@ -17,7 +17,7 @@ class DamagePropagationTransformer(nn.Module):
         x = self.activation(x)
         return x
 
-# LSTM model
+
 class DamagePropagationLSTM(nn.Module):
     def __init__(self, feature_count, out_dim):
         super(DamagePropagationLSTM, self).__init__()
@@ -74,7 +74,7 @@ def train_model(model, criterion, optimizer,
                 val_loss += loss.item() * data.size(0)
 
         val_loss = val_loss / len(val_loader.dataset)
-        print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}')
+        print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}, Epoch total loss: {val_loss:.4f}')
         mse_list.append(loss.item())
         if val_loss < best_loss:
             best_loss = val_loss
