@@ -1,4 +1,4 @@
-from model import *
+from lstm import *
 from utils import *
 import torch
 import torch.nn as nn
@@ -6,18 +6,19 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter as svg
 
 # enforcing GPU usage
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: ', torch.cuda.get_device_name(0))
 
 # Data directories
-train_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/train_FD00X.txt'
-test_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/test_FD00X.txt'
-RUL_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/RUL_FD00X.txt'
-# train_path = f'E:/CMAPSS/data/train_FD00X.txt'
-# test_path = f'E:/CMAPSS/data/test_FD00X.txt'
-# RUL_path = f'E:/CMAPSS/data/RUL_FD00X.txt'
+#train_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/train_FD00X.txt'
+#test_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/test_FD00X.txt'
+#RUL_path = 'D:/Data Science/CMAPSS Engine Simulations/Data/RUL_FD00X.txt'
+train_path = f'E:/CMAPSS/data/train_FD00X.txt'
+test_path = f'E:/CMAPSS/data/test_FD00X.txt'
+RUL_path = f'E:/CMAPSS/data/RUL_FD00X.txt'
 
 """Trajectories FD001 and FD003 both have redundant readings which can be dropped as they are constant or rarely 
 change. FD004 and FD002 both have a redundant sensor 16."""
@@ -41,14 +42,23 @@ for j in range(len(train_data)):
     train_data[j].iloc[:, 2:-1] = scaler.fit_transform(train_data[j].iloc[:, 2:-1])
     test_data[j].iloc[:, 2:-1] = scaler.transform(test_data[j].iloc[:, 2:-1])
 
+# Denoising data
+window_length = 20
+poly_order = 4
+for k in range(len(train_data)):
+    train_data[k] = denoise(train_data[k], window_length, poly_order)
+    test_data[k] = denoise(test_data[k], window_length, poly_order)
 
+a111 = np.arange(1, 192, 1)
+b2 = train_data[0]['sensor12'].values
+plt.plot(a111, b2)
 # Grabbing column labels
 FD_columns = [[column for column in df if column != 'RUL'] for df in train_data]
 
 sequence_length = 10
 trajectory = 0  # see readme file
-batch_size = 64
-epochs = 150
+batch_size = 128
+epochs = 350
 x, y = create_training_batch(train_data[trajectory], sequence_length, FD_columns[trajectory])
 x_test, y_test = create_test_batch(test_data[trajectory], sequence_length, FD_columns[trajectory])
 feature_count = x.shape[2]
@@ -71,18 +81,16 @@ print(Model)
 
 # Loss function and optimisation
 criterion = nn.MSELoss()
-optimizer = torch.optim.RMSprop(Model.parameters(), lr=0.0001)
+optimizer = torch.optim.RMSprop(Model.parameters(), lr=0.00005)
 
 # Training the model (note that model1 is a list of MSE values per epoch)
 model_filename = 'LSTM_model1.pt'
-model1 = train_model(Model, criterion, optimizer,
-                     train_loader, val_loader, num_epochs=epochs,
-                     patience=10, filename=model_filename)
+#model1 = train_model(Model, criterion, optimizer, train_loader, val_loader, num_epochs=epochs, patience=10, filename=model_filename)
 
 #epoch_id = np.arange(1, epochs+1, 1)
 
 # Loading trained model
-model_path = f'D:/Data Science/CMAPSS Engine Simulations/code/tft_new_311/{model_filename}'
+model_path = f'E:/CMAPSS/code/tft_new_2_311/{model_filename}'
 Model.load_state_dict(torch.load(model_path))
 Model.to(device)
 Model.eval()
@@ -110,9 +118,8 @@ RUL_vec = np.arange(int(max_life[0]), 0, -1)
 for i in max_life[1:]:
     RUL_vec = np.concatenate((RUL_vec, np.arange(int(i), 1, -1)))
 
-print(y_train[0:200])
 # Plotting predictions on training data
-fig, axs = plt.subplots(1, 2, figsize=(18, 6))
+fig, axs = plt.subplots(1, 2, figsize=(36, 6))
 axs[0].plot(y_train[0:100], label='Actual')
 axs[0].plot(y_train_pred[0:100], label='Predicted')
 axs[0].set_title('Model performance on training data')

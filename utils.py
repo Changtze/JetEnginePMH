@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from scipy.signal import savgol_filter as svg
 
 # change file path as appropriate
 train_path = f'E:/CMAPSS/data/train_FD00X.txt'
@@ -15,6 +16,20 @@ cols_to_drop = ['opMode3', 'sensor1', 'sensor5',
                 'sensor18', 'sensor19', 'sensor17']
 labels = (['unit', 'cycles', 'opMode1', 'opMode2', 'opMode3']
           + [f'sensor{i}' for i in range(1, 22)])  # for 22 sensors
+
+
+def denoise(df, window_length, polyorder):
+    u = df.groupby('unit')['cycles'].max().astype(int)
+    for max_life in u:
+        for j in range(2, df.shape[1]):
+            df.iloc[1:max_life+1, j] = svg(df.iloc[1:max_life+1, j], window_length, polyorder)
+    return None
+
+
+    for unit in range(1, df['unit'].max()+1):
+        for j in range(2, df.shape[1]):
+            df.iloc[:, j] = svg(df.iloc[:, j], window_length, polyorder)
+    return None
 
 
 def load_data(filepath, rul=False):
