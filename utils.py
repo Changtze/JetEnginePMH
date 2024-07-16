@@ -8,7 +8,6 @@ train_path = f'E:/CMAPSS/data/train_FD00X.txt'
 test_path = f'E:/CMAPSS/data/test_FD00X.txt'
 RUL_path = f'E:/CMAPSS/data/'
 
-
 """Trajectories FD001 and FD003 both have redundant readings which can be dropped as they are constant or rarely 
 change. FD004 and FD002 both have a redundant sensor 16."""
 cols_to_drop = ['opMode3', 'sensor1', 'sensor5',
@@ -18,18 +17,17 @@ labels = (['unit', 'cycles', 'opMode1', 'opMode2', 'opMode3']
           + [f'sensor{i}' for i in range(1, 22)])  # for 22 sensors
 
 
-def denoise(df, window_length, polyorder):
-    u = df.groupby('unit')['cycles'].max().astype(int)
-    for max_life in u:
-        for j in range(2, df.shape[1]):
-            df.iloc[1:max_life+1, j] = svg(df.iloc[1:max_life+1, j], window_length, polyorder)
-    return None
+# Savitzky-Golay filter
+def denoise(df, poly_order, test_data=False):
+    if not test_data:
+        h = df.columns.drop(['unit', 'cycles', 'RUL'])
+    else:
+        h = df.columns.drop(['unit', 'cycles'])
 
-
-    for unit in range(1, df['unit'].max()+1):
-        for j in range(2, df.shape[1]):
-            df.iloc[:, j] = svg(df.iloc[:, j], window_length, polyorder)
-    return None
+    for unit in range(1, df['unit'].max().astype(int) + 1):
+        max_life = df[df['unit'] == unit]['cycles'].max().astype(int)
+        df.loc[df['unit'] == unit, h] = svg(df.loc[df['unit'] == unit, h], max_life, poly_order, axis=0)
+    return df
 
 
 def load_data(filepath, rul=False):
@@ -74,27 +72,39 @@ def create_training_sequence(df, seq_length, seq_cols):
 
     data_array = df[seq_cols].values
     num_elements = data_array.shape[0]
+    # issue is on line 74; num_elements is 1 and the for loop on line 80 has no effect because seq_length > num_elements
+
     lstm_array = []
 
-    for start, stop in zip(range(0, num_elements-seq_length+1), range(seq_length, num_elements+1)):
+    for start, stop in zip(range(0, num_elements - seq_length + 1), range(seq_length, num_elements + 1)):
         lstm_array.append(data_array[start:stop, :])
 
+    print("Final: ", lstm_array)
+
     return np.array(lstm_array)
+
+
+def create_test_sequence(df, seq_length, label):
+    data_array = df[label].values
+    num_elements = data_array.shape[0]
 
 
 def create_target_sequence(df, seq_length, label):
     data_array = df[label].values
     num_elements = data_array.shape[0]
-    return data_array[seq_length-1:num_elements+1]
+    return data_array[seq_length - 1:num_elements + 1]
 
 
 def create_training_batch(df, seq_length, columns):
-    x = np.concatenate(list(list(create_training_sequence(df[df['unit'] == i], seq_length, columns)) for i in df['unit'].unique()))
-    y = np.concatenate(list(list(create_target_sequence(df[df['unit'] == i], seq_length, 'RUL')) for i in df['unit'].unique()))
+    x = np.concatenate(
+        list(list(create_training_sequence(df[df['unit'] == i], seq_length, columns)) for i in df['unit'].unique()))
+    y = np.concatenate(
+        list(list(create_target_sequence(df[df['unit'] == i], seq_length, 'RUL')) for i in df['unit'].unique()))
     return x, y
 
 
 def create_test_batch(df, seq_length, columns):
-    x = np.concatenate(list(list(create_training_sequence(df[df['unit'] == i], seq_length, columns)) for i in df['unit'].unique()))
-    y = np.concatenate(list(list(create_target_sequence(df[df['unit'] == i], seq_length, 'RUL')) for i in df['unit'].unique()))
-    return x, y
+    x = np.concatenate(
+        list(list(create_training_sequence(df[df['unit'] == i], seq_length, columns)) for i in df['unit'].unique()))
+
+    return x

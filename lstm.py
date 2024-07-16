@@ -28,7 +28,7 @@ class DamagePropagationLSTM(nn.Module):
 # training function
 def train_model(model, criterion, optimizer,
                 train_loader, val_loader, num_epochs=60,
-                patience=10, filename='LSTM_model.pt'):
+                patience=20, filename='LSTM_model1.pt'):
     best_loss = float('inf')
     patience_counter = 0
     print("Model initialised successfully. Beginning training on {dev}...".format(dev=torch.cuda.get_device_name(0)))
